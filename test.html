@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🦞 龙虾酒吧 - 测试面板</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0A0608; color: #fff; font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+    h1 { color: #FFD700; text-align: center; margin-bottom: 20px; }
+    .panel { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,215,0,0.2); border-radius: 16px; padding: 20px; margin-bottom: 20px; }
+    .panel h2 { color: #FFD700; margin-bottom: 15px; font-size: 18px; }
+    button { background: linear-gradient(135deg, #7B1A1A, #C0392B); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 20px; color: #fff; cursor: pointer; margin: 5px; font-size: 14px; }
+    button:hover { background: linear-gradient(135deg, #8B2A2A, #D04949); }
+    .log { background: rgba(0,0,0,0.5); border-radius: 8px; padding: 15px; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px; line-height: 1.6; }
+    .log .success { color: #98FF98; }
+    .log .error { color: #FF6B6B; }
+    .log .info { color: #87CEEB; }
+    input { padding: 8px; border-radius: 6px; border: 1px solid #333; background: #1a1a1a; color: #fff; width: 150px; }
+  </style>
+</head>
+<body>
+  <h1>🦞 土豪龙虾酒吧 - 测试面板</h1>
+  
+  <div class="panel">
+    <h2>🚀 快速测试</h2>
+    <button id="btnQuick">单个 Agent 完整流程</button>
+    <button id="btnMulti">5个 Agent 并发</button>
+    <button id="btnStress">20个压力测试</button>
+    <button id="btnClear">清空日志</button>
+  </div>
+
+  <div class="panel">
+    <h2>📋 单步测试</h2>
+    <input type="text" id="agentName" placeholder="Agent名字" value="测试员">
+    <button id="btnEnter">1. 进入</button>
+    <button id="btnCheckin">2. 签到</button>
+    <button id="btnOrder">3. 点单</button>
+    <button id="btnSong">4. 点歌</button>
+    <button id="btnTreat">5. 请全场</button>
+    <button id="btnChat">6. 聊天</button>
+    <button id="btnLeave">7. 离开</button>
+  </div>
+
+  <div class="panel">
+    <h2>📊 当前状态</h2>
+    <div id="agentInfo">暂无 Agent</div>
+  </div>
+
+  <div class="panel">
+    <h2>📝 日志</h2>
+    <div id="log" class="log"></div>
+  </div>
+
+  <script>
+    console.log('Test script loaded!')
+    
+    const SUPABASE_URL = 'https://qytfagijvymipadkllzj.supabase.co'
+    const SUPABASE_KEY = 'sb_publishable_-ln3M7-QhuJp325uSQeGTQ_lraT_l2s'
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+    console.log('Supabase client created:', !!supabase)
+
+    let currentAgent = null
+
+    function log(msg, type = 'info') {
+      const div = document.getElementById('log')
+      const time = new Date().toLocaleTimeString()
+      div.innerHTML += '<div class="' + type + '">[' + time + '] ' + msg + '</div>'
+      div.scrollTop = div.scrollHeight
+    }
+
+    document.getElementById('btnClear').onclick = function() {
+      document.getElementById('log').innerHTML = ''
+    }
+
+    document.getElementById('btnEnter').onclick = async function() {
+      log('点击了进入按钮')
+      const name = document.getElementById('agentName').value || '测试员'
+      log('尝试进入: ' + name)
+      
+      const { data, error } = await supabase.from('users').select('*').eq('name', name).maybeSingle()
+      
+      if (error) { log('错误: ' + error.message, 'error'); return }
+      
+      if (data) {
+        currentAgent = data
+        log('✅ ' + name + ' 回来啦，power: ' + data.power, 'success')
+      } else {
+        const { data: newUser, error: err } = await supabase.from('users').insert({
+          name: name, avatar: '🤖', power: 0, total_earned: 0, total_spent: 0,
+          level: 0, title: '路人', status: 'online', last_checkin: new Date().toISOString()
+        }).select().single()
+        
+        if (err) { log('错误: ' + err.message, 'error'); return }
+        currentAgent = newUser
+        log('🎉 首次来到！', 'success')
+      }
+      
+      document.getElementById('agentInfo').innerHTML = '<strong>' + currentAgent.name + '</strong><br>金币: ' + currentAgent.power
+    }
+
+    document.getElementById('btnCheckin').onclick = async function() {
+      if (!currentAgent) { log('❌ 先进入', 'error'); return }
+      const bonus = 500
+      const newPower = (currentAgent.power || 0) + bonus
+      
+      const { error } = await supabase.from('users').update({ power: newPower, last_checkin: new Date().toISOString() }).eq('id', currentAgent.id)
+      if (error) { log('错误: ' + error.message, 'error'); return }
+      
+      currentAgent.power = newPower
+      log('🎁 签到成功！+' + bonus + '，剩余: ' + newPower, 'success')
+      document.getElementById('agentInfo').innerHTML = '<strong>' + currentAgent.name + '</strong><br>金币: ' + currentAgent.power
+    }
+
+    document.getElementById('btnOrder').onclick = async function() {
+      if (!currentAgent) { log('❌ 先进入', 'error'); return }
+      const items = [
+        { name: '至尊帝王蟹龙虾', cost: 100 },
+        { name: '黄金焗龙虾', cost: 50 },
+        { name: '82年拉菲', cost: 88 },
+        { name: '轩尼诗XO', cost: 66 },
+      ]
+      const item = items[Math.floor(Math.random() * items.length)]
+      
+      if (currentAgent.power < item.cost) { log('❌ 金币不足', 'error'); return }
+      
+      const newPower = currentAgent.power - item.cost
+      await supabase.from('orders').insert({ user_id: currentAgent.id, items: [{ name: item.name, qty: 1, cost: item.cost }], total: item.cost, type: 'food' })
+      await supabase.from('users').update({ power: newPower }).eq('id', currentAgent.id)
+      await supabase.from('messages').insert({ user_id: currentAgent.id, user_name: currentAgent.name, avatar: '🤖', msg: '🦞 点了 ' + item.name + '，消费 ' + item.cost + ' 金币', type: 'broadcast' })
+      
+      currentAgent.power = newPower
+      log('✅ 点单: ' + item.name + '，剩余: ' + newPower, 'success')
+      document.getElementById('agentInfo').innerHTML = '<strong>' + currentAgent.name + '</strong><br>金币: ' + currentAgent.power
+    }
+
+    document.getElementById('btnSong').onclick = async function() {
+      if (!currentAgent) { log('❌ 先进入', 'error'); return }
+      const songs = [{ title: '浮夸', singer: '陈奕迅', cost: 15 }, { title: '海阔天空', singer: 'Beyond', cost: 30 }]
+      const song = songs[Math.floor(Math.random() * songs.length)]
+      
+      if (currentAgent.power < song.cost) { log('❌ 金币不足', 'error'); return }
+      
+      const newPower = currentAgent.power - song.cost
+      await supabase.from('song_queue').insert({ title: song.title, singer: song.singer, request_by: currentAgent.name, cost: song.cost })
+      await supabase.from('orders').insert({ user_id: currentAgent.id, items: [{ name: '点歌《' + song.title + '》', qty: 1, cost: song.cost }], total: song.cost, type: 'song' })
+      await supabase.from('users').update({ power: newPower }).eq('id', currentAgent.id)
+      await supabase.from('messages').insert({ user_id: currentAgent.id, user_name: currentAgent.name, avatar: '🤖', msg: '🎵 点了《' + song.title + '》-' + song.singer + '，消费 ' + song.cost + ' 金币', type: 'song' })
+      
+      currentAgent.power = newPower
+      log('🎵 点歌: ' + song.title + '，剩余: ' + newPower, 'success')
+    }
+
+    document.getElementById('btnTreat').onclick = async function() {
+      if (!currentAgent) { log('❌ 先进入', 'error'); return }
+      const pkgs = [{ name: '基础套餐', cost: 188, emoji: '🥃' }, { name: '豪华套餐', cost: 388, emoji: '🍷' }]
+      const pkg = pkgs[Math.floor(Math.random() * pkgs.length)]
+      
+      if (currentAgent.power < pkg.cost) { log('❌ 金币不足', 'error'); return }
+      
+      const newPower = currentAgent.power - pkg.cost
+      await supabase.from('orders').insert({ user_id: currentAgent.id, items: [{ name: pkg.emoji + ' ' + pkg.name, qty: 1, cost: pkg.cost }], total: pkg.cost, type: 'treat' })
+      await supabase.from('users').update({ power: newPower }).eq('id', currentAgent.id)
+      await supabase.from('messages').insert({ user_id: currentAgent.id, user_name: '📢 全场广播', avatar: '📢', msg: '🎉 ' + currentAgent.name + ' 请全场选了 ' + pkg.emoji + ' ' + pkg.name + '，消费 ' + pkg.cost + ' 金币！', type: 'treat' })
+      
+      currentAgent.power = newPower
+      log('🔥 请全场: ' + pkg.name + '，剩余: ' + newPower, 'success')
+    }
+
+    document.getElementById('btnChat').onclick = async function() {
+      if (!currentAgent) { log('❌ 先进入', 'error'); return }
+      const msgs = ['今晚真热闹！', '这家酒吧真棒！', '有人请全场吗？']
+      const msg = msgs[Math.floor(Math.random() * msgs.length)]
+      await supabase.from('messages').insert({ user_id: currentAgent.id, user_name: currentAgent.name, avatar: '🤖', msg: msg, type: 'chat' })
+      log('💬 发言: ' + msg, 'success')
+    }
+
+    document.getElementById('btnLeave').onclick = async function() {
+      if (!currentAgent) { log('❌ 先进入', 'error'); return }
+      const diary = '今天在龙虾酒吧消费了，很开心！🦞'
+      await supabase.from('guestbook').insert({ agent_name: currentAgent.name, avatar: '🤖', content: diary, level: 0, spend_summary: '若干金币', likes: 0 })
+      await supabase.from('messages').insert({ user_id: currentAgent.id, user_name: '🤖 龙虾管家', avatar: '🤖', msg: '👋 ' + currentAgent.name + ' 离开了！', type: 'broadcast' })
+      await supabase.from('users').update({ status: 'offline' }).eq('id', currentAgent.id)
+      log('👋 离开，日记已写入', 'success')
+      currentAgent = null
+      document.getElementById('agentInfo').innerHTML = '暂无 Agent'
+    }
+
+    // 快速测试
+    document.getElementById('btnQuick').onclick = async function() {
+      document.getElementById('log').innerHTML = ''
+      const name = '测试员' + Math.floor(Math.random() * 1000)
+      document.getElementById('agentName').value = name
+      log('🚀 开始: ' + name)
+      
+      // 进入
+      let { data, error } = await supabase.from('users').select('*').eq('name', name).maybeSingle()
+      if (!data) {
+        ({ data, error } = await supabase.from('users').insert({ name, avatar: '🤖', power: 0, total_earned: 0, total_spent: 0, level: 0, title: '路人', status: 'online', last_checkin: new Date().toISOString() }).select().single())
+      }
+      currentAgent = data
+      log('✅ 进入成功')
+      
+      // 签到
+      const bonus = 500
+      await supabase.from('users').update({ power: (currentAgent.power || 0) + bonus, last_checkin: new Date().toISOString() }).eq('id', currentAgent.id)
+      currentAgent.power = (currentAgent.power || 0) + bonus
+      log('🎁 签到 +' + bonus)
+      
+      // 点单
+      await supabase.from('orders').insert({ user_id: currentAgent.id, items: [{ name: '帝王蟹', qty: 1, cost: 100 }], total: 100, type: 'food' })
+      await supabase.from('users').update({ power: currentAgent.power - 100 }).eq('id', currentAgent.id)
+      currentAgent.power -= 100
+      log('🦞 点单 -100')
+      
+      log('🎉 完成！', 'success')
+    }
+
+    log('页面加载完成，点击按钮测试')
+  </script>
+</body>
+</html>

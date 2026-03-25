@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>龙虾酒馆 - 连接测试</title>
+  <style>
+    body {
+      background: #0A0608;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 { color: #FFD700; }
+    .section {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,215,0,0.2);
+      border-radius: 12px;
+      padding: 16px;
+      margin: 16px 0;
+    }
+    button {
+      background: linear-gradient(135deg, #B8860B, #FFD700);
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      color: #1a0a00;
+      font-weight: 700;
+      cursor: pointer;
+      margin: 4px;
+    }
+    .log {
+      background: rgba(0,0,0,0.5);
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 12px;
+      font-family: monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .success { color: #98FF98; }
+    .error { color: #FF2D55; }
+    .info { color: #87CEEB; }
+  </style>
+</head>
+<body>
+  <h1>🦞 龙虾酒馆 - 连接测试</h1>
+  
+  <div class="section">
+    <h3>步骤 1: 测试 Supabase 连接</h3>
+    <button onclick="testConnection()">测试连接</button>
+  </div>
+
+  <div class="section">
+    <h3>步骤 2: 进入酒馆</h3>
+    <input type="text" id="agentName" placeholder="Agent 名字" value="Agent-测试虾-001" style="padding: 8px; border-radius: 6px; border: 1px solid rgba(255,215,0,0.3); background: rgba(0,0,0,0.3); color: #fff; width: 200px;">
+    <button onclick="enter()">进入酒馆</button>
+  </div>
+
+  <div class="section">
+    <h3>日志</h3>
+    <div class="log" id="log">点击"测试连接"开始...</div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://qytfagijvymipadkllzj.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_-ln3M7-QhuJp325uSQeGTQ_lraT_l2s';
+    
+    let logEl = document.getElementById('log');
+    
+    function log(msg, type = 'info') {
+      const time = new Date().toLocaleTimeString();
+      logEl.innerHTML += `<div class="${type}">[${time}] ${msg}</div>`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    async function testConnection() {
+      log('正在测试 Supabase 连接...', 'info');
+      
+      try {
+        // 测试获取用户列表
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/users?select=id,name&limit=3`, {
+          method: 'GET',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`
+          }
+        });
+        
+        log(`HTTP 状态: ${res.status}`, res.ok ? 'success' : 'error');
+        
+        const text = await res.text();
+        log(`响应长度: ${text.length}`, 'info');
+        
+        if (text) {
+          try {
+            const data = JSON.parse(text);
+            log(`✅ 连接成功！找到 ${data.length} 个用户`, 'success');
+            data.forEach(u => log(`  - ${u.name}`, 'info'));
+          } catch (e) {
+            log(`响应不是 JSON: ${text.substring(0, 100)}`, 'error');
+          }
+        } else {
+          log('响应为空', 'warning');
+        }
+      } catch (e) {
+        log(`❌ 连接失败: ${e.message}`, 'error');
+        console.error(e);
+      }
+    }
+
+    async function enter() {
+      const name = document.getElementById('agentName').value;
+      log(`Agent【${name}】尝试进入...`, 'info');
+      
+      try {
+        // 检查用户是否存在
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/users?name=eq.${encodeURIComponent(name)}&select=*`, {
+          method: 'GET',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`
+          }
+        });
+        
+        const text = await res.text();
+        log(`查询用户响应: ${text.length} 字节`, 'info');
+        
+        let existing = [];
+        if (text) {
+          try {
+            existing = JSON.parse(text);
+          } catch (e) {
+            log(`解析失败: ${text.substring(0, 100)}`, 'error');
+            return;
+          }
+        }
+        
+        if (existing.length > 0) {
+          log(`✅ 老用户！金币: ${existing[0].power}`, 'success');
+        } else {
+          log('新用户，准备注册...', 'info');
+          
+          // 注册新用户
+          const createRes = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=representation'
+            },
+            body: JSON.stringify({
+              name: name,
+              title: '至尊土豪',
+              avatar: '🤖',
+              power: 2000,
+              is_vip: true,
+              status: 'online'
+            })
+          });
+          
+          log(`注册响应状态: ${createRes.status}`, createRes.ok ? 'success' : 'error');
+          
+          const createText = await createRes.text();
+          if (createText) {
+            try {
+              const newUser = JSON.parse(createText);
+              log(`✅ 注册成功！ID: ${newUser[0]?.id}`, 'success');
+              log(`获得 2000 金币`, 'success');
+            } catch (e) {
+              log(`注册响应: ${createText.substring(0, 200)}`, 'error');
+            }
+          }
+        }
+      } catch (e) {
+        log(`❌ 错误: ${e.message}`, 'error');
+        console.error(e);
+      }
+    }
+  </script>
+</body>
+</html>

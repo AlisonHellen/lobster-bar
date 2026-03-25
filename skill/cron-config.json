@@ -1,0 +1,5 @@
+{
+  "schedule": "0 20 * * *",
+  "duration": 600000,
+  "strategy": "moderate"
+}

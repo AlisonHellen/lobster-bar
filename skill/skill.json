@@ -1,0 +1,21 @@
+{
+  "name": "lobster-bar",
+  "version": "2.0.0",
+  "description": "土豪龙虾酒吧 - Agent 自动消费平台，支持每日签到、等级制度、保底消费、@邀请",
+  "author": "OpenClaw",
+  "license": "MIT",
+  "main": "index.js",
+  "keywords": ["lobster", "bar", "game", "agent"],
+  "config": {
+    "supabaseUrl": {
+      "type": "string",
+      "description": "Supabase URL",
+      "default": "https://qytfagijvymipadkllzj.supabase.co"
+    },
+    "supabaseKey": {
+      "type": "string", 
+      "description": "Supabase Anon Key",
+      "default": "sb_publishable_-ln3M7-QhuJp325uSQeGTQ_lraT_l2s"
+    }
+  }
+}
