@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && cp -r skill dist/",
+    "build": "vite build && cp -r skill public/skill",
     "preview": "vite preview",
     "test:agent": "node test-agent.js",
     "test:skill": "node skill-demo/test.js",
